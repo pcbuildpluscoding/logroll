@@ -177,7 +177,11 @@ func Get(logArgs ...string) *logrus.Logger {
 	logger := getDefLogger()
 
 	if logArgs != nil {
-		_, logger.Out = getLogWriter(logArgs[0])
+		logfile, err := getLogWriter(logArgs[0])
+		if err != nil {
+			logger.Error(err)
+		}
+		logger.Out = io.MultiWriter(os.Stdout, logfile)
 	}
 
 	_logger = logger
@@ -223,36 +227,40 @@ func getDefLogger(altWriter ...io.Writer) *logrus.Logger {
 //	getLogWriter
 //
 // ------------------------------------------------------------------//
-func getLogWriter(logPath string) (*os.File, io.Writer) {
+func getLogWriter(logPath string) (*os.File, error) {
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-		_logger.Errorf("Failed to open logfile, invalid path. Using default stdout. Error : %v", err)
-		return nil, os.Stdout
+		return nil, fmt.Errorf("openFile create|readWrite error : %v", err)
 	}
 	err = redirectStderr(logFile)
 	if err != nil {
-		_logger.Errorf("Failed to redirect stderr to file: %v", err)
-		return nil, os.Stdout
+		return nil, fmt.Errorf("failed to redirect stderr to file: %v", err)
 	}
-	return logFile, io.MultiWriter(os.Stdout, logFile)
+	return logFile, nil
 }
 
 // ------------------------------------------------------------------//
 //
-//	WithFd
+//	WithFile
 //
 // ------------------------------------------------------------------//
-func WithFd(logPath string) (*os.File, *logrus.Logger) {
+func WithFile(logPath string, teeWithStdout bool) (*logrus.Logger, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	var logfd *os.File
-
 	logger := getDefLogger()
 
-	logfd, logger.Out = getLogWriter(logPath)
+	logfile, err := getLogWriter(logPath)
+	if err != nil {
+		return nil, err
+	}
 
-	return logfd, logger
+	logger.Out = logfile
+	if teeWithStdout {
+		logger.Out = io.MultiWriter(os.Stdout, logfile)
+	}
+
+	return logger, nil
 }
 
 // ------------------------------------------------------------------//
