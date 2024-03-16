@@ -235,7 +235,7 @@ func WithFile(logPath string, notTeedWithStdout ...bool) (*logrus.Logger, error)
 
 	logfile, err := getLogWriter(logPath)
 	if err != nil {
-		return nil, err
+		return logger, err
 	}
 
 	if notTeedWithStdout != nil {
