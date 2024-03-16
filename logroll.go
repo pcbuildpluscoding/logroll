@@ -13,11 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Logroll struct {
-	Log *logrus.Logger
-	Fd  *os.File
-}
-
 // ------------------------------------------------------------------//
 //
 //	init
@@ -166,27 +161,14 @@ func filterLevels(mode string, levelKeys ...string) []logrus.Level {
 //	Get
 //
 // ------------------------------------------------------------------//
-func Get(logArgs ...string) *logrus.Logger {
+func Get() *logrus.Logger {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if logArgs == nil && _logger != nil {
+	if _logger != nil {
 		return _logger
 	}
-
-	logger := getDefLogger()
-
-	if logArgs != nil {
-		logfile, err := getLogWriter(logArgs[0])
-		if err != nil {
-			logger.Error(err)
-		}
-		logger.Out = io.MultiWriter(os.Stdout, logfile)
-	}
-
-	_logger = logger
-
-	return logger
+	return getDefLogger()
 }
 
 // ------------------------------------------------------------------//
@@ -213,13 +195,14 @@ func getDefLogger(altWriter ...io.Writer) *logrus.Logger {
 	if altWriter != nil && altWriter[0] != nil {
 		writer = altWriter[0]
 	}
-	return &logrus.Logger{
+	_logger = &logrus.Logger{
 		Out:          writer,
 		Formatter:    formatter,
 		Hooks:        make(logrus.LevelHooks),
 		Level:        logLevel,
 		ReportCaller: true,
 	}
+	return _logger
 }
 
 // ------------------------------------------------------------------//
@@ -244,22 +227,23 @@ func getLogWriter(logPath string) (*os.File, error) {
 //	WithFile
 //
 // ------------------------------------------------------------------//
-func WithFile(logPath string, teeWithStdout bool) (*logrus.Logger, error) {
+func WithFile(logPath string, notTeedWithStdout ...bool) (*logrus.Logger, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	logger := getDefLogger()
+	logger := Get()
 
 	logfile, err := getLogWriter(logPath)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Out = logfile
-	if teeWithStdout {
-		logger.Out = io.MultiWriter(os.Stdout, logfile)
+	if notTeedWithStdout != nil {
+		logger.Out = logfile
+		return logger, nil
 	}
 
+	logger.Out = io.MultiWriter(os.Stdout, logfile)
 	return logger, nil
 }
 

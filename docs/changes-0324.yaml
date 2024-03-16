@@ -21,3 +21,9 @@ logroll:
     date: 17 Mar 2024
     notes: |
       add _logfile to the global vars and provide a GetLogile method that returns it
+      after review the purpose of having a global logfile is not very clear and so this one
+      is not implemented
+  - source: __package__
+    date: 17 Mar 2024
+    notes: |
+      remove all redundant functions like allLevelsSet and filterLevels and global var logLevel
