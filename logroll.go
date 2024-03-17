@@ -168,7 +168,8 @@ func Get() *logrus.Logger {
 	if _logger != nil {
 		return _logger
 	}
-	return getDefLogger()
+	_logger = getDefLogger()
+	return _logger
 }
 
 // ------------------------------------------------------------------//
@@ -195,14 +196,13 @@ func getDefLogger(altWriter ...io.Writer) *logrus.Logger {
 	if altWriter != nil && altWriter[0] != nil {
 		writer = altWriter[0]
 	}
-	_logger = &logrus.Logger{
+	return &logrus.Logger{
 		Out:          writer,
 		Formatter:    formatter,
 		Hooks:        make(logrus.LevelHooks),
 		Level:        logLevel,
 		ReportCaller: true,
 	}
-	return _logger
 }
 
 // ------------------------------------------------------------------//
@@ -231,7 +231,7 @@ func WithFile(logPath string, notTeedWithStdout ...bool) (*logrus.Logger, error)
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	logger := Get()
+	logger := getDefLogger()
 
 	logfile, err := getLogWriter(logPath)
 	if err != nil {
