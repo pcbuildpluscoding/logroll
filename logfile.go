@@ -56,6 +56,8 @@ type LogFile struct {
 
 	reportCaller bool
 
+	traceLog TraceLog
+
 	tokenCh AtomicWrite
 
 	Out  io.Writer
@@ -101,6 +103,8 @@ func (f *LogFile) addEntry(level logrus.Level, format string, args ...interface{
 
 	frame, err := f.getBytes(e)
 
+	f.traceLog.Debugf("log entry : %s", string(frame)) //nolint
+
 	f.putEntry(e)
 
 	if err != nil {
@@ -108,6 +112,7 @@ func (f *LogFile) addEntry(level logrus.Level, format string, args ...interface{
 		return
 	}
 
+	f.traceLog.Debugf("calling Out.Write ...") //nolint
 	_, err = f.Out.Write(frame)
 	if err != nil {
 		f.Printf("LogFile writer error : %v", err)
@@ -117,18 +122,33 @@ func (f *LogFile) addEntry(level logrus.Level, format string, args ...interface{
 }
 
 // -------------------------------------------------------------- //
+// SetTrace
+// ---------------------------------------------------------------//
+func (f *LogFile) SetTrace(running bool) {
+	f.traceLog.running = running
+}
+
+// -------------------------------------------------------------- //
+// DumpTrace
+// ---------------------------------------------------------------//
+func (f *LogFile) DumpTrace() error {
+	return f.traceLog.Dump(f.Out)
+}
+
+// -------------------------------------------------------------- //
 // getBytes
 // ---------------------------------------------------------------//
 func (f *LogFile) getBytes(e *LogEntry) ([]byte, error) {
+	f.traceLog.Debugf("is remoteWriter enabled? : %v", f.remoteWriter) //nolint
 	if f.remoteWriter {
 		frame, err := e.Encode()
 		if err != nil {
-			fmt.Printf("LogEntry encode error : %v\n", err)
+			f.traceLog.Debugf("LogEntry encode error : %v\n", err) //nolint
 			f.remoteWriter = false
 		}
 		_, err = f.rOut.Write(frame)
 		if err != nil {
-			fmt.Printf("remote writer error : %v\n", err)
+			f.traceLog.Debugf("remote writer error : %v\n", err) //nolint
 			f.remoteWriter = false
 		}
 	}

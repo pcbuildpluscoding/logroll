@@ -309,6 +309,7 @@ func NewFile(level logrus.Level, logPath string) (*LogFile, error) {
 	lf := New(level)
 	writer, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	lf.Out = writer
+	lf.traceLog = TraceLog{running: false}
 	return lf, err
 }
 

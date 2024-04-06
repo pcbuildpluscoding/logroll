@@ -8,3 +8,19 @@ logroll:
     date: 6 Apr 2024
     notes: |
       remove Packet because it is not used for LogFile operations.
+  - source: logroll.go, logfile.go and util.go
+    date: 6 Apr 2024
+    notes: |
+      make a TraceLog type that wraps a bytes.Buffer and is usable to debug the internal LogFile workflow.
+      add the new TraceLog as a traceLog property to LogFile
+      it is applicable by adding a variadic traceLog bool argument to NewFile. 
+      If true traceLog.running is set true. Add a DumpTrace method to LogFile for printing the traceLog to
+      the output io.Writer.
+  - source: logfile.go
+    date: 7 Apr 2024
+    notes: |
+      Add a SetTrace method with a bool argument that sets the running status.
+  - source: logroll.go
+    date: 7 Apr 2024
+    notes: |
+      remove all the previous logroll version code.

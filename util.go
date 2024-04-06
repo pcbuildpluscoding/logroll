@@ -1,6 +1,7 @@
 package logroll
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -242,4 +243,29 @@ func (r FlowRule) StringList(key string) []string {
 func (r FlowRule) Value(key string) interface{} {
 	x, _ := r[key]
 	return x
+}
+
+// ==================================================================//
+// TraceLog
+// ==================================================================//
+type TraceLog struct {
+	this    bytes.Buffer
+	running bool
+}
+
+func (t *TraceLog) Debugf(format string, args ...interface{}) error {
+	if !t.running {
+		return nil
+	}
+	_, err := fmt.Fprintf(&t.this, format+"\n", args...)
+	return err
+}
+
+func (t *TraceLog) Dump(w io.Writer) error {
+	if w == nil {
+		return nil
+	}
+	_, err := fmt.Fprintln(w, t.this.String())
+	t.this.Reset()
+	return err
 }

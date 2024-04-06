@@ -26,3 +26,7 @@ const (
 type Formatter interface {
 	Format(*LogEntry) ([]byte, error)
 }
+
+type Writer interface {
+	Write(*LogEntry) error
+}
