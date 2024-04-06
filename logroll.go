@@ -48,7 +48,7 @@ var (
 //	trimPath - reduces the path of the caller file name
 //
 // ------------------------------------------------------------------//
-func trimCaller(fileName string, lineNum int) string {
+func trimCaller1(fileName string, lineNum int) string {
 	fitems := fileRegex.Split(fileName, -1)
 	size := len(fitems)
 	if size <= 2 {
@@ -62,7 +62,7 @@ func trimCaller(fileName string, lineNum int) string {
 //	trimFunc - reduces the path of the caller function name
 //
 // ------------------------------------------------------------------//
-func trimFunc(fileName string) string {
+func trimFunc1(fileName string) string {
 	fitems := funcRegex.Split(fileName, -1)
 	size := len(fitems)
 	if size <= 2 {
@@ -179,8 +179,8 @@ func Get() *logrus.Logger {
 // ------------------------------------------------------------------//
 func getDefLogger(altWriter ...io.Writer) *logrus.Logger {
 	prettyfier := func(f *runtime.Frame) (string, string) {
-		callerTxt := trimCaller(f.File, f.Line)
-		funcTxt := trimFunc(f.Function)
+		callerTxt := trimCaller1(f.File, f.Line)
+		funcTxt := trimFunc1(f.Function)
 		return funcTxt, callerTxt
 	}
 	formatter := &logrus.TextFormatter{
@@ -266,4 +266,53 @@ func WithWriter(writer io.Writer) *logrus.Logger {
 // ------------------------------------------------------------------//
 func redirectStderr(f *os.File) error {
 	return syscall.Dup2(int(f.Fd()), int(os.Stderr.Fd()))
+}
+
+// ------------------------------------------------------------------//
+// New
+// ------------------------------------------------------------------//
+func New(arg ...logrus.Level) *LogFile {
+	prettyfier := func(text string) (string, string) {
+		funcTxt, callerTxt := getCallerProps(text)
+		return trimFunc(funcTxt), trimCaller(callerTxt)
+	}
+	formatter := &TextFormatter{
+		CallerPrettyfier: prettyfier,
+		DisableTimestamp: false,
+		FullTimestamp:    true,
+		PadLevelText:     true,
+		TimestampFormat:  "2006-01-02 15:04:05.000000"}
+	level := logrus.DebugLevel
+	if arg != nil {
+		level = arg[0]
+	}
+	return &LogFile{
+		Out:          os.Stdout,
+		tokenCh:      newAtomicWrite(),
+		formatter:    formatter,
+		level:        level,
+		reportCaller: true,
+		exitFunc:     os.Exit,
+	}
+}
+
+// ------------------------------------------------------------------//
+// NewFile
+// ------------------------------------------------------------------//
+func NewFile(level logrus.Level, logPath string) (*LogFile, error) {
+	lf := New(level)
+	writer, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	lf.Out = writer
+	return lf, err
+}
+
+// --------------------	------------------------------------------ //
+// newAtomicWrite
+// ---------------------------------------------------------------//
+func newAtomicWrite() AtomicWrite {
+	a := AtomicWrite{
+		stateCh: make(chan Void, 1),
+	}
+	a.stateCh <- Void{}
+	return a
 }

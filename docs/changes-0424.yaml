@@ -1,0 +1,6 @@
+---
+logroll:
+  - source: __package__
+    date: 6 Apr 2024
+    notes: |
+      import and convert streamlog/front/logfile.go with extra support files.
