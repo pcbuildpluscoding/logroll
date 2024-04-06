@@ -269,19 +269,25 @@ func redirectStderr(f *os.File) error {
 }
 
 // ------------------------------------------------------------------//
-// New
+// NewTextFormatter
 // ------------------------------------------------------------------//
-func New(arg ...logrus.Level) *LogFile {
+func NewTextFormatter() *TextFormatter {
 	prettyfier := func(text string) (string, string) {
 		funcTxt, callerTxt := getCallerProps(text)
 		return trimFunc(funcTxt), trimCaller(callerTxt)
 	}
-	formatter := &TextFormatter{
+	return &TextFormatter{
 		CallerPrettyfier: prettyfier,
 		DisableTimestamp: false,
 		FullTimestamp:    true,
 		PadLevelText:     true,
 		TimestampFormat:  "2006-01-02 15:04:05.000000"}
+}
+
+// ------------------------------------------------------------------//
+// New
+// ------------------------------------------------------------------//
+func New(arg ...logrus.Level) *LogFile {
 	level := logrus.DebugLevel
 	if arg != nil {
 		level = arg[0]
@@ -289,7 +295,7 @@ func New(arg ...logrus.Level) *LogFile {
 	return &LogFile{
 		Out:          os.Stdout,
 		tokenCh:      newAtomicWrite(),
-		formatter:    formatter,
+		formatter:    NewTextFormatter(),
 		level:        level,
 		reportCaller: true,
 		exitFunc:     os.Exit,

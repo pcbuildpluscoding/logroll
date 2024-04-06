@@ -1,7 +1,6 @@
 package logroll
 
 import (
-	"bytes"
 	"fmt"
 	"sync"
 	"time"
@@ -91,99 +90,11 @@ func (e *LogEntry) Encode() ([]byte, error) {
 }
 
 // -------------------------------------------------------------- //
-// putEntry
+// reset
 // ---------------------------------------------------------------//
 func (e *LogEntry) reset() {
 	e.Caller = ""
 	e.Time = time.Time{}
 	e.Level = 0
 	e.Value = nil
-}
-
-// ================================================================//
-// Packet
-// ================================================================//
-type Packet struct {
-	this     [][]byte
-	seqnum   int
-	maxSize  int
-	currSize int
-}
-
-// -------------------------------------------------------------- //
-// append
-// ---------------------------------------------------------------//
-func (p *Packet) append(frame []byte) {
-	p.currSize += len(frame)
-	p.this = append(p.this, frame)
-}
-
-// -------------------------------------------------------------- //
-// addEntry
-// ---------------------------------------------------------------//
-func (p *Packet) addEntry(entry LogEntry) error {
-	frame, err := entry.Encode()
-	if err != nil {
-		return err
-	}
-	p.currSize += len(frame)
-	p.this = append(p.this, frame)
-	return nil
-}
-
-// -------------------------------------------------------------- //
-// bytes
-// ---------------------------------------------------------------//
-func (p *Packet) bytes() []byte {
-	return bytes.Join(p.flush(), []byte("|+|"))
-}
-
-// -------------------------------------------------------------- //
-// flush
-// ---------------------------------------------------------------//
-func (p *Packet) flush() [][]byte {
-	x := p.this
-	p.this = [][]byte{}
-	p.currSize = 0
-	return x
-}
-
-// -------------------------------------------------------------- //
-// full
-// ---------------------------------------------------------------//
-func (p *Packet) full() bool {
-	if p.maxSize <= 0 {
-		return true
-	}
-	return p.currSize >= p.maxSize
-}
-
-// -------------------------------------------------------------- //
-// nextDbKey
-// ---------------------------------------------------------------//
-func (p *Packet) nextDbKey(logKey string) string {
-	p.seqnum += 1
-	return fmt.Sprintf("%s/%d", logKey, p.seqnum)
-}
-
-// -------------------------------------------------------------- //
-// reset
-// ---------------------------------------------------------------//
-func (p *Packet) reset(maxSize ...int) {
-	p.seqnum = 0
-	p.this = [][]byte{}
-	p.currSize = 0
-	if maxSize != nil {
-		p.maxSize = maxSize[0]
-	}
-}
-
-// -------------------------------------------------------------- //
-// newPacket
-// ---------------------------------------------------------------//
-func newPacket(maxSize int) Packet {
-	return Packet{
-		this:    [][]byte{},
-		maxSize: maxSize,
-	}
 }

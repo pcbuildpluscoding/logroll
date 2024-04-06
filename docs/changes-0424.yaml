@@ -4,3 +4,7 @@ logroll:
     date: 6 Apr 2024
     notes: |
       import and convert streamlog/front/logfile.go with extra support files.
+  - source: entry.go
+    date: 6 Apr 2024
+    notes: |
+      remove Packet because it is not used for LogFile operations.
