@@ -212,6 +212,14 @@ func (f *LogFile) SetWriter(iw interface{}) {
 }
 
 // -------------------------------------------------------------- //
+// Closef
+// ---------------------------------------------------------------//
+func (f *LogFile) Closef(format string, args ...interface{}) {
+	f.addEntry(logrus.DebugLevel, format, args...)
+	f.addEntry(logrus.DebugLevel, "__EOF__")
+}
+
+// -------------------------------------------------------------- //
 // Debugf
 // ---------------------------------------------------------------//
 func (f *LogFile) Debugf(format string, args ...interface{}) {
@@ -251,6 +259,13 @@ func (f *LogFile) Error(err error) {
 // ---------------------------------------------------------------//
 func (f *LogFile) Errorf(format string, args ...interface{}) {
 	f.addEntry(logrus.ErrorLevel, format, args...)
+}
+
+// -------------------------------------------------------------- //
+// Fatal
+// ---------------------------------------------------------------//
+func (f *LogFile) Fatal(err error) {
+	f.addEntry(logrus.FatalLevel, err.Error())
 }
 
 // -------------------------------------------------------------- //

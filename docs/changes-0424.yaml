@@ -60,3 +60,8 @@ logroll:
       1. add a Flush method to guarantee Subscriber receipt of the remainder logging content, before a completed job is
          disconnected from all services.
       2. remove the commented out old version of the getBytes method.
+  - source: logfile.go
+    date: 9 Apr 2024
+    notes: |
+      to LogFile add Fatal(error) and Closef(string,...interface{}), where Closef adds a record as normal and
+      additionally adds an __EOF__ record.
