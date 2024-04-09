@@ -2,6 +2,7 @@ package logroll
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -58,7 +59,7 @@ func (e *LogEntry) Decode(frame []byte) error {
 			switch i {
 			case 0:
 				x := int64(value.GetNumberValue())
-				e.Time = time.Unix(x, 0)
+				e.Time = time.UnixMicro(x)
 			case 1:
 				x := value.GetStringValue()
 				if e.Level, err = logrus.ParseLevel(x); err != nil {
@@ -81,7 +82,7 @@ func (e *LogEntry) Decode(frame []byte) error {
 // ---------------------------------------------------------------//
 func (e *LogEntry) Encode() ([]byte, error) {
 	dset, _ := spb.NewValue([]any{
-		e.Time.Unix(),
+		e.Time.UnixMicro(),
 		e.Level.String(),
 		e.Value,
 		e.Caller,
@@ -97,4 +98,53 @@ func (e *LogEntry) reset() {
 	e.Time = time.Time{}
 	e.Level = 0
 	e.Value = nil
+}
+
+// =============================================================== //
+// LogWriter
+// =============================================================== //
+type LogWriter interface {
+	Write(*LogEntry) error
+	GetWriter() io.Writer
+	SetWriter(io.Writer) error
+}
+
+// =============================================================== //
+// FileWriter
+// =============================================================== //
+type FileWriter struct {
+	allowMultiWrite bool
+	writer          io.Writer
+	formatter       *TextFormatter
+}
+
+// -------------------------------------------------------------- //
+// Write
+// ---------------------------------------------------------------//
+func (fw FileWriter) Write(e *LogEntry) error {
+	frame, err := fw.formatter.Format(e)
+	if err != nil {
+		return err
+	}
+	_, err = fw.writer.Write(frame)
+	return err
+}
+
+// -------------------------------------------------------------- //
+// GetWriter
+// ---------------------------------------------------------------//
+func (fw FileWriter) GetWriter() io.Writer {
+	return fw.writer
+}
+
+// -------------------------------------------------------------- //
+// SetWriter
+// ---------------------------------------------------------------//
+func (fw *FileWriter) SetWriter(w io.Writer) error {
+	if fw.allowMultiWrite {
+		fw.writer = io.MultiWriter(fw.writer, w)
+	} else {
+		fw.writer = w
+	}
+	return nil
 }

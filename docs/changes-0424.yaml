@@ -24,3 +24,39 @@ logroll:
     date: 7 Apr 2024
     notes: |
       remove all the previous logroll version code.
+  - source: entry.go
+    date: 7 Apr 2024
+    notes: |
+      1. create a LogWriter interface that consumes a *LogEntry and which handles record formating or otherwise.
+      2. change LogFile.Out and rOut properties from io.Writer to LogWriter
+      3. change LogFile.addEntry to call Out(*LogEntry) instead of formatting a byte slice for an io.Writer to
+         consume.
+      4. comment out any LogFile methods that depend on LogFile.Out type = io.Writer
+  - source: logfile.go
+    date: 7 Apr 2024
+    notes: |
+      add traceLogging of all errors in LogFile.addEntry
+      remove LogFile.remoteWriter property
+  - source: util.go
+    date: 7 Apr 2024
+    notes: |
+      change TraceLog.SetTraceMode to SetTrace, since the short form is self-explained by the bool argument.
+  - source: logfile.go
+    date: 7 Apr 2024
+    notes: |
+      change LogFile.Out to writer and rOut to rwriter
+      add a new method called Writer() that returns io.Writer
+  - source: entry.go
+    date: 8 Apr 2024
+    notes: |
+      change LogEntry.Encode and Decode to use the time.UnixMicro call which records microseconds
+  - source: __package__
+    date: 8 Apr 2024
+    notes: |
+      add a .gitignore file to ignore temp and testing
+  - source: logfile.go
+    date: 8 Apr 2024
+    notes: |
+      1. add a Flush method to guarantee Subscriber receipt of the remainder logging content, before a completed job is
+         disconnected from all services.
+      2. remove the commented out old version of the getBytes method.

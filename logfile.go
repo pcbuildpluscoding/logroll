@@ -39,8 +39,6 @@ func (a *AtomicWrite) set(token Void) {
 type LogFile struct {
 	category FlowRule
 
-	formatter Formatter
-
 	// The logging level the logger should log at. This is typically (and defaults
 	// to) `logrus.Info`, which allows Info(), Warn(), Error() and Fatal() to be
 	// logged.
@@ -52,16 +50,14 @@ type LogFile struct {
 	// Function to exit the application, defaults to `os.Exit()`
 	exitFunc exitFunc
 
-	remoteWriter bool
-
 	reportCaller bool
 
 	traceLog TraceLog
 
 	tokenCh AtomicWrite
 
-	Out  io.Writer
-	rOut io.Writer
+	writer  LogWriter
+	rWriter LogWriter
 }
 
 // -------------------------------------------------------------- //
@@ -101,22 +97,28 @@ func (f *LogFile) addEntry(level logrus.Level, format string, args ...interface{
 		e.Caller = GetCallerText(false)
 	}
 
-	frame, err := f.getBytes(e)
+	err := f.writer.Write(e)
+	if err != nil {
+		f.traceLog.Debugf("LogFile LogWriter error : %v", err) //nolint
+		f.Printf("LogFile LogWriter error : %v", err)
+	}
 
-	f.traceLog.Debugf("log entry : %s", string(frame)) //nolint
+	if f.rWriter != nil {
+		err = f.rWriter.Write(e)
+		if err != nil {
+			f.traceLog.Debugf("LogFile LogWriter error : %v", err) //nolint
+			f.Printf("LogFile LogWriter error : %v", err)
+		}
+	}
 
 	f.putEntry(e)
 
 	if err != nil {
+		f.traceLog.Debugf("LogFile LogWriter error : %v", err) //nolint
 		f.Printf("LogFile entry encoding error : %v", err)
 		return
 	}
 
-	f.traceLog.Debugf("calling Out.Write ...") //nolint
-	_, err = f.Out.Write(frame)
-	if err != nil {
-		f.Printf("LogFile writer error : %v", err)
-	}
 	// replace the token
 	f.tokenCh.set(token)
 }
@@ -132,28 +134,32 @@ func (f *LogFile) SetTrace(running bool) {
 // DumpTrace
 // ---------------------------------------------------------------//
 func (f *LogFile) DumpTrace() error {
-	return f.traceLog.Dump(f.Out)
+	return f.traceLog.Dump(f.writer.GetWriter())
 }
 
 // -------------------------------------------------------------- //
-// getBytes
+// Flush
 // ---------------------------------------------------------------//
-func (f *LogFile) getBytes(e *LogEntry) ([]byte, error) {
-	f.traceLog.Debugf("is remoteWriter enabled? : %v", f.remoteWriter) //nolint
-	if f.remoteWriter {
-		frame, err := e.Encode()
-		if err != nil {
-			f.traceLog.Debugf("LogEntry encode error : %v\n", err) //nolint
-			f.remoteWriter = false
-		}
-		_, err = f.rOut.Write(frame)
-		if err != nil {
-			f.traceLog.Debugf("remote writer error : %v\n", err) //nolint
-			f.remoteWriter = false
-		}
+func (f *LogFile) Flush() {
+	if f.rWriter == nil {
+		return
 	}
+	token := f.tokenCh.get()
+	e := f.getEntry(logrus.InfoLevel)
+	e.Value = "__flush__"
+	err := f.rWriter.Write(e)
+	if err != nil {
+		f.traceLog.Debugf("LogFile LogWriter error : %v", err) //nolint
+		f.Printf("LogFile LogWriter error : %v", err)
+	}
+	f.tokenCh.set(token)
+}
 
-	return f.formatter.Format(e)
+// -------------------------------------------------------------- //
+// Writer
+// ---------------------------------------------------------------//
+func (f *LogFile) Writer() io.Writer {
+	return f.writer.GetWriter()
 }
 
 // -------------------------------------------------------------- //
@@ -187,54 +193,22 @@ func (f *LogFile) SetLevel(level logrus.Level) {
 // -------------------------------------------------------------- //
 // SetRemoteWriter
 // ---------------------------------------------------------------//
-func (f *LogFile) SetRemoteWriter(writer io.Writer) {
-	f.rOut = writer
-	f.remoteWriter = true
+func (f *LogFile) SetRemoteWriter(writer LogWriter) {
+	token := f.tokenCh.get()
+	f.rWriter = writer
+	f.tokenCh.set(token)
 }
 
 // -------------------------------------------------------------- //
 // SetWriter
 // ---------------------------------------------------------------//
-func (f *LogFile) SetWriter(writer io.Writer, multiWriter bool) {
-	if writer == nil {
-		return
+func (f *LogFile) SetWriter(iw interface{}) {
+	switch writer := iw.(type) {
+	case LogWriter:
+		f.writer = writer
+	case io.Writer:
+		f.writer.SetWriter(writer) //nolint
 	}
-	if checkIfTerminal(writer) {
-		fr, ok := f.formatter.(*TextFormatter)
-		if !ok {
-			return
-		}
-		fr.init(writer)
-	} else if multiWriter {
-		f.Out = io.MultiWriter(f.Out, writer)
-		return
-	}
-	f.Out = writer
-}
-
-// -------------------------------------------------------------- //
-// SetFormatter
-// ---------------------------------------------------------------//
-func (f *LogFile) SetFormatter(fr Formatter) {
-	f.formatter = fr
-}
-
-// -------------------------------------------------------------- //
-// init
-// ---------------------------------------------------------------//
-func (f *LogFile) init() *LogFile {
-	f.entryPool = sync.Pool{
-		New: func() any {
-			return &LogEntry{}
-		},
-	}
-
-	fr, ok := f.formatter.(*TextFormatter)
-	if !ok {
-		return f
-	}
-	fr.init(f.Out)
-	return f
 }
 
 // -------------------------------------------------------------- //

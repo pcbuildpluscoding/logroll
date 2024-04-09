@@ -292,10 +292,14 @@ func New(arg ...logrus.Level) *LogFile {
 	if arg != nil {
 		level = arg[0]
 	}
+	writer := &FileWriter{
+		allowMultiWrite: true,
+		writer:          os.Stdout,
+		formatter:       NewTextFormatter(),
+	}
 	return &LogFile{
-		Out:          os.Stdout,
+		writer:       writer,
 		tokenCh:      newAtomicWrite(),
-		formatter:    NewTextFormatter(),
 		level:        level,
 		reportCaller: true,
 		exitFunc:     os.Exit,
@@ -308,7 +312,7 @@ func New(arg ...logrus.Level) *LogFile {
 func NewFile(level logrus.Level, logPath string) (*LogFile, error) {
 	lf := New(level)
 	writer, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	lf.Out = writer
+	lf.writer.SetWriter(writer) //nolint
 	lf.traceLog = TraceLog{running: false}
 	return lf, err
 }
