@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	spb "google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -39,7 +38,7 @@ var ErrorKey = "error"
 // =============================================================== //
 type LogEntry struct {
 	Caller string
-	Level  logrus.Level
+	Level  Level
 	Time   time.Time
 	Value  interface{}
 }
@@ -62,8 +61,9 @@ func (e *LogEntry) Decode(frame []byte) error {
 				e.Time = time.UnixMicro(x)
 			case 1:
 				x := value.GetStringValue()
-				if e.Level, err = logrus.ParseLevel(x); err != nil {
-					e.Level = logrus.InfoLevel
+				if e.Level, err = ParseLevel(x); err != nil {
+					fmt.Println(err)
+					e.Level = InfoLevel
 				}
 			case 2:
 				e.Value = value.GetStringValue()

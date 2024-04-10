@@ -60,8 +60,17 @@ logroll:
       1. add a Flush method to guarantee Subscriber receipt of the remainder logging content, before a completed job is
          disconnected from all services.
       2. remove the commented out old version of the getBytes method.
+    review: not as useful as the Close method, which proved to be a good solution.
   - source: logfile.go
     date: 9 Apr 2024
     notes: |
       to LogFile add Fatal(error) and Closef(string,...interface{}), where Closef adds a record as normal and
       additionally adds an __EOF__ record.
+  - source: logroll.go
+    date: 10 Apr 2024
+    notes: |
+      1. remove the old design source code in logroll.go. remove formatter.go after moving Formatter to 
+      2. create a local version of the logrus.Level type
+      3. change provider function NewFile(level logrus.Level, logPath string) (*LogFile, error) 
+         to WithFile(logPath string, ...Level) (*LogFile, error)
+      4. change the default level applied in New() *LogFile constructor from DebugLevel to InfoLevel

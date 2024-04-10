@@ -6,8 +6,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 type exitFunc func(int)
@@ -40,9 +38,9 @@ type LogFile struct {
 	category FlowRule
 
 	// The logging level the logger should log at. This is typically (and defaults
-	// to) `logrus.Info`, which allows Info(), Warn(), Error() and Fatal() to be
+	// to) `logroll.Info`, which allows Info(), Warn(), Error() and Fatal() to be
 	// logged.
-	level logrus.Level
+	level Level
 	// Used to sync writing to the log. Locking is enabled by Default
 	// mu MutexWrap
 	// Reusable empty entry
@@ -83,7 +81,7 @@ func (f *LogFile) AddLogCat(args ...interface{}) {
 // -------------------------------------------------------------- //
 // addEntry
 // ---------------------------------------------------------------//
-func (f *LogFile) addEntry(level logrus.Level, format string, args ...interface{}) {
+func (f *LogFile) addEntry(level Level, format string, args ...interface{}) {
 	if level > f.level {
 		return
 	}
@@ -145,7 +143,7 @@ func (f *LogFile) Flush() {
 		return
 	}
 	token := f.tokenCh.get()
-	e := f.getEntry(logrus.InfoLevel)
+	e := f.getEntry(InfoLevel)
 	e.Value = "__flush__"
 	err := f.rWriter.Write(e)
 	if err != nil {
@@ -165,7 +163,7 @@ func (f *LogFile) Writer() io.Writer {
 // -------------------------------------------------------------- //
 // getEntry
 // ---------------------------------------------------------------//
-func (f *LogFile) getEntry(level logrus.Level) *LogEntry {
+func (f *LogFile) getEntry(level Level) *LogEntry {
 	e, ok := f.entryPool.Get().(*LogEntry)
 	if !ok {
 		e = &LogEntry{}
@@ -186,7 +184,7 @@ func (f *LogFile) putEntry(e *LogEntry) {
 // -------------------------------------------------------------- //
 // SetLevel
 // ---------------------------------------------------------------//
-func (f *LogFile) SetLevel(level logrus.Level) {
+func (f *LogFile) SetLevel(level Level) {
 	f.level = level
 }
 
@@ -215,22 +213,22 @@ func (f *LogFile) SetWriter(iw interface{}) {
 // Closef
 // ---------------------------------------------------------------//
 func (f *LogFile) Closef(format string, args ...interface{}) {
-	f.addEntry(logrus.DebugLevel, format, args...)
-	f.addEntry(logrus.DebugLevel, "__EOF__")
+	f.addEntry(DebugLevel, format, args...)
+	f.addEntry(DebugLevel, "__EOF__")
 }
 
 // -------------------------------------------------------------- //
 // Debugf
 // ---------------------------------------------------------------//
 func (f *LogFile) Debugf(format string, args ...interface{}) {
-	f.addEntry(logrus.DebugLevel, format, args...)
+	f.addEntry(DebugLevel, format, args...)
 }
 
 // -------------------------------------------------------------- //
 // Infof
 // ---------------------------------------------------------------//
 func (f *LogFile) Infof(format string, args ...interface{}) {
-	f.addEntry(logrus.InfoLevel, format, args...)
+	f.addEntry(InfoLevel, format, args...)
 }
 
 // -------------------------------------------------------------- //
@@ -244,35 +242,35 @@ func (f *LogFile) Printf(format string, args ...interface{}) {
 // Warnf
 // ---------------------------------------------------------------//
 func (f *LogFile) Warnf(format string, args ...interface{}) {
-	f.addEntry(logrus.WarnLevel, format, args...)
+	f.addEntry(WarnLevel, format, args...)
 }
 
 // -------------------------------------------------------------- //
 // Error
 // ---------------------------------------------------------------//
 func (f *LogFile) Error(err error) {
-	f.addEntry(logrus.ErrorLevel, err.Error())
+	f.addEntry(ErrorLevel, err.Error())
 }
 
 // -------------------------------------------------------------- //
 // Errorf
 // ---------------------------------------------------------------//
 func (f *LogFile) Errorf(format string, args ...interface{}) {
-	f.addEntry(logrus.ErrorLevel, format, args...)
+	f.addEntry(ErrorLevel, format, args...)
 }
 
 // -------------------------------------------------------------- //
 // Fatal
 // ---------------------------------------------------------------//
 func (f *LogFile) Fatal(err error) {
-	f.addEntry(logrus.FatalLevel, err.Error())
+	f.addEntry(FatalLevel, err.Error())
 }
 
 // -------------------------------------------------------------- //
 // Fatalf
 // ---------------------------------------------------------------//
 func (f *LogFile) Fatalf(format string, args ...interface{}) {
-	f.addEntry(logrus.FatalLevel, format, args...)
+	f.addEntry(FatalLevel, format, args...)
 	os.Exit(1)
 }
 
@@ -280,7 +278,7 @@ func (f *LogFile) Fatalf(format string, args ...interface{}) {
 // Panicf
 // ---------------------------------------------------------------//
 func (f *LogFile) Panicf(format string, args ...interface{}) {
-	f.addEntry(logrus.PanicLevel, format, args...)
+	f.addEntry(PanicLevel, format, args...)
 	// panic(fmt.Sprintf(format, args...))
 }
 
@@ -288,6 +286,6 @@ func (f *LogFile) Panicf(format string, args ...interface{}) {
 // Tracef
 // ---------------------------------------------------------------//
 func (f *LogFile) Tracef(format string, args ...interface{}) {
-	f.addEntry(logrus.TraceLevel, format, args...)
+	f.addEntry(TraceLevel, format, args...)
 	// panic(fmt.Sprintf(format, args...))
 }
