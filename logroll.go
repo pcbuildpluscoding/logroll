@@ -3,7 +3,6 @@ package logroll
 import (
 	"fmt"
 	"os"
-	"strings"
 )
 
 // ------------------------------------------------------------------//
@@ -61,26 +60,26 @@ func (level Level) String() string {
 	}
 }
 
-// ParseLevel takes a string level and returns the Logrus log level constant.
+// ParseLevel takes a string level and returns the Logroll log level constant.
 func ParseLevel(level string) (Level, error) {
-	switch strings.ToLower(level) {
-	case "panic":
+	switch level {
+	case "PanicLevel":
 		return PanicLevel, nil
-	case "fatal":
+	case "FatalLevel":
 		return FatalLevel, nil
-	case "error":
+	case "ErrorLevel":
 		return ErrorLevel, nil
-	case "warn", "warning":
+	case "WarnLevel":
 		return WarnLevel, nil
-	case "info":
+	case "InfoLevel":
 		return InfoLevel, nil
-	case "debug":
+	case "DebugLevel":
 		return DebugLevel, nil
-	case "trace":
+	case "TraceLevel":
 		return TraceLevel, nil
 	}
 
-	return NoLevel, fmt.Errorf("%q is not a valid logroll Level", level)
+	return NoLevel, fmt.Errorf("|%s| is not a valid logroll Level", level)
 }
 
 // ------------------------------------------------------------------//

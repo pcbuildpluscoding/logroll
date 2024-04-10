@@ -74,3 +74,8 @@ logroll:
       3. change provider function NewFile(level logrus.Level, logPath string) (*LogFile, error) 
          to WithFile(logPath string, ...Level) (*LogFile, error)
       4. change the default level applied in New() *LogFile constructor from DebugLevel to InfoLevel
+  - source: text_formatter.go
+    date: 10 Apr 2024
+    notes: |
+      create a rudimentary TextFormatter which has virtually no options except reportCaller bool, and prints 
+      only the typical fields as effeciently as possible.
