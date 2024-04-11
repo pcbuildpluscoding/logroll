@@ -79,3 +79,37 @@ logroll:
     notes: |
       create a rudimentary TextFormatter which has virtually no options except reportCaller bool, and prints 
       only the typical fields as effeciently as possible.
+  - source: text_formatter.go
+    date: 11 Apr 2024
+    notes: |
+      remove all logrus dependency from TextFormatter
+      1. replace logrus.AllLevels with a local var allLevels with type []string and update TextFormatter.init to
+         use it.
+      2. create a getTrimCallerProps function that returns caller funcText and fileText, trimmed by default
+      3. create MinimalFormatter that implements the rudimentary TextFormatter documented earlier.
+  - source: formatter.go
+    date: 11 Apr 2024
+    notes: |
+      1. move defaultTimestampFormat const declaration from formatter.go into logroll.go
+      2. move Formatter type declaration from formatter.go into logroll.go and remove formatter.go
+  - source: util.go
+    date: 11 Apr 2024
+    notes: |
+      remove the redundant map value assignment in FlowRule.Value
+  - source: entry.go
+    date: 11 Apr 2024
+    notes: |
+      correct a minor bug in FileWriter struct, changing formatter type from *TextFormatter to Formatter
+  - source: logroll.go
+    date: 11 Apr 2024
+    notes: |
+      1. create a NewMinimalFormatter provider function
+      2. in the New provider function, replace NewTextFormatter with NewMinimalFormatter
+  - source: __package__
+    date: 11 Apr 2024
+    notes: |
+      create a testing folder, and setup a testcase suit that proves MinimalFormatter is bug-free.
+  - source: logroll.go
+    date: logroll.go
+    notes: |
+      1. change Level.String to return a lowercase short form of the level value

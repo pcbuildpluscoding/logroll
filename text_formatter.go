@@ -5,28 +5,10 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
-	"unicode/utf8"
-
-	"github.com/sirupsen/logrus"
 )
 
-var baseTimestamp time.Time
-
-func init() {
-	baseTimestamp = time.Now()
-}
-
-type fieldKey string
-
-type FieldMap map[fieldKey]string
-
-func (f FieldMap) resolve(key fieldKey) string {
-	if k, ok := f[key]; ok {
-		return k
-	}
-
-	return string(key)
+var allLevels = []string{
+	"panic", "fatal", "error", "warn", "info", "debug", "trace",
 }
 
 // =============================================================== //
@@ -83,8 +65,8 @@ func (f *TextFormatter) init(writer io.Writer) {
 		f.isTerminal = checkIfTerminal(writer)
 	}
 	// Get the max length of the level text
-	for _, level := range logrus.AllLevels {
-		levelTextLength := utf8.RuneCount([]byte(level.String()))
+	for _, level := range allLevels {
+		levelTextLength := len(level)
 		if levelTextLength > f.levelTextMaxLength {
 			f.levelTextMaxLength = levelTextLength
 		}
@@ -144,6 +126,17 @@ func getCallerProps(text string) (string, string) {
 }
 
 // -------------------------------------------------------------- //
+// getTrimCallerProps
+// ---------------------------------------------------------------//
+func getTrimCallerProps(text string) (string, string) {
+	props := strings.SplitN(text, ":", 2)
+	if len(props) == 1 {
+		return trimFunc(props[0]), ""
+	}
+	return trimFunc(props[0]), trimCaller(props[1])
+}
+
+// -------------------------------------------------------------- //
 // needsQuoting
 // ---------------------------------------------------------------//
 func (f *TextFormatter) needsQuoting(text string) bool {
@@ -192,5 +185,91 @@ func (f *TextFormatter) appendValue(b *bytes.Buffer, value interface{}) {
 		b.WriteString(stringVal)
 	} else {
 		b.WriteString(fmt.Sprintf("%q", stringVal))
+	}
+}
+
+// =============================================================== //
+// MinimalFormatter formats logs into text
+// =============================================================== //
+type MinimalFormatter struct {
+	// the resolved standard level width
+	levelWidth int
+	// TimestampFormat to use for display when a full timestamp is printed.
+	// The format to use is the same than for time.Format or time.Parse from the standard
+	// library.
+	// The standard Library already provides a set of predefined format.
+	TimestampFormat string
+
+	// PadLevelText Adds padding the level text so that all the levels output at the same length
+	// PadLevelText is a superset of the DisableLevelTruncation option
+	PadLevelText bool
+}
+
+// -------------------------------------------------------------- //
+// Format - renders a single log entry
+// ---------------------------------------------------------------//
+func (f *MinimalFormatter) Format(e *LogEntry) ([]byte, error) {
+	b := bufferPool.Get()
+	b.Reset()
+
+	timestampFormat := f.TimestampFormat
+	if timestampFormat == "" {
+		timestampFormat = defaultTimestampFormat
+	}
+	f.appendKeyValue(b, "time", e.Time.Format(timestampFormat))
+
+	f.appendKeyValue(b, "level", e.Level.String())
+	f.appendKeyValue(b, "msg", e.Value)
+
+	if e.Caller != "" {
+		funcText, callerText := getTrimCallerProps(e.Caller)
+
+		if funcText != "" {
+			f.appendKeyValue(b, "func", funcText)
+		}
+		if callerText != "" {
+			f.appendKeyValue(b, "file", callerText)
+		}
+	}
+
+	b.WriteByte('\n')
+	frame := b.Bytes()
+	b.Reset()
+	bufferPool.Put(b)
+	return frame, nil
+}
+
+// -------------------------------------------------------------- //
+// appendKeyValue
+// ---------------------------------------------------------------//
+func (f *MinimalFormatter) appendKeyValue(b *bytes.Buffer, key string, value interface{}) {
+	if b.Len() > 0 {
+		b.WriteByte(' ')
+	}
+	b.WriteString(key)
+	b.WriteByte('=')
+	text, ok := value.(string)
+	if !ok {
+		text = fmt.Sprint(value)
+	}
+	if key == "level" && f.PadLevelText {
+		text = fmt.Sprintf("%q", text)
+		b.WriteString(fmt.Sprintf("%-*s", f.levelWidth+2, text))
+	} else {
+		b.WriteString(fmt.Sprintf("%q", text))
+	}
+}
+
+// -------------------------------------------------------------- //
+// init
+// ---------------------------------------------------------------//
+func (f *MinimalFormatter) init() {
+	if !f.PadLevelText {
+		return
+	}
+	for _, level := range allLevels {
+		if width := len(level); width > f.levelWidth {
+			f.levelWidth = width
+		}
 	}
 }

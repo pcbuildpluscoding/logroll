@@ -3,12 +3,19 @@ package logroll
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
-// ------------------------------------------------------------------//
-// Void
-// ------------------------------------------------------------------//
+const defaultTimestampFormat = time.RFC3339
+
 type Void struct{}
+
+// =============================================================== //
+// Formatter
+// =============================================================== //
+type Formatter interface {
+	Format(*LogEntry) ([]byte, error)
+}
 
 // =============================================================== //
 // Level
@@ -42,40 +49,40 @@ const (
 func (level Level) String() string {
 	switch level {
 	case PanicLevel:
-		return "PanicLevel"
+		return "panic"
 	case FatalLevel:
-		return "FatalLevel"
+		return "fatal"
 	case ErrorLevel:
-		return "ErrorLevel"
+		return "error"
 	case WarnLevel:
-		return "WarnLevel"
+		return "warn"
 	case InfoLevel:
-		return "InfoLevel"
+		return "info"
 	case DebugLevel:
-		return "DebugLevel"
+		return "debug"
 	case TraceLevel:
-		return "TraceLevel"
+		return "trace"
 	default:
-		return "NoLevel"
+		return "invalid"
 	}
 }
 
 // ParseLevel takes a string level and returns the Logroll log level constant.
 func ParseLevel(level string) (Level, error) {
 	switch level {
-	case "PanicLevel":
+	case "panic":
 		return PanicLevel, nil
-	case "FatalLevel":
+	case "fatal":
 		return FatalLevel, nil
-	case "ErrorLevel":
+	case "error":
 		return ErrorLevel, nil
-	case "WarnLevel":
+	case "warn":
 		return WarnLevel, nil
-	case "InfoLevel":
+	case "info":
 		return InfoLevel, nil
-	case "DebugLevel":
+	case "debug":
 		return DebugLevel, nil
-	case "TraceLevel":
+	case "trace":
 		return TraceLevel, nil
 	}
 
@@ -99,6 +106,17 @@ func NewTextFormatter() *TextFormatter {
 }
 
 // ------------------------------------------------------------------//
+// NewMinimalFormatter
+// ------------------------------------------------------------------//
+func NewMinimalFormatter() *MinimalFormatter {
+	f := &MinimalFormatter{
+		PadLevelText:    true,
+		TimestampFormat: "2006-01-02 15:04:05.000000"}
+	f.init()
+	return f
+}
+
+// ------------------------------------------------------------------//
 // New
 // ------------------------------------------------------------------//
 func New(arg ...Level) *LogFile {
@@ -109,7 +127,7 @@ func New(arg ...Level) *LogFile {
 	writer := &FileWriter{
 		allowMultiWrite: true,
 		writer:          os.Stdout,
-		formatter:       NewTextFormatter(),
+		formatter:       NewMinimalFormatter(),
 	}
 	return &LogFile{
 		writer:       writer,

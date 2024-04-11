@@ -18,4 +18,4 @@ bin/
 build/
 log/
 temp/
-testing/
+testing/log

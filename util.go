@@ -241,8 +241,7 @@ func (r FlowRule) StringList(key string) []string {
 // Value
 // ------------------------------------------------------------------//
 func (r FlowRule) Value(key string) interface{} {
-	x, _ := r[key]
-	return x
+	return r[key]
 }
 
 // ==================================================================//

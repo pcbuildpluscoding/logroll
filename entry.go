@@ -115,7 +115,7 @@ type LogWriter interface {
 type FileWriter struct {
 	allowMultiWrite bool
 	writer          io.Writer
-	formatter       *TextFormatter
+	formatter       Formatter
 }
 
 // -------------------------------------------------------------- //
