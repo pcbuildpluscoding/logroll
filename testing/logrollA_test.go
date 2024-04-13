@@ -152,6 +152,10 @@ func tca_logFile(t *testing.T, rw FlowRuler, args ...interface{}) error {
 			assert.Equal(t, "another error!", getLogMessage(string(line)), "assert-3-%d", i)
 		}
 	}
+
+	err = logger.Close()
+	assert.NilError(t, err, "assert-4")
+
 	fmt.Println("tca_logfile is complete")
 	return nil
 }

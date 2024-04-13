@@ -104,6 +104,7 @@ func (e *LogEntry) reset() {
 // LogWriter
 // =============================================================== //
 type LogWriter interface {
+	Close() error
 	Write(*LogEntry) error
 	GetWriter() io.Writer
 	SetWriter(io.Writer) error
@@ -114,8 +115,22 @@ type LogWriter interface {
 // =============================================================== //
 type FileWriter struct {
 	allowMultiWrite bool
+	closer          []io.Closer
 	writer          io.Writer
 	formatter       Formatter
+}
+
+// -------------------------------------------------------------- //
+// Close
+// ---------------------------------------------------------------//
+func (fw FileWriter) Close() error {
+	for _, c := range fw.closer {
+		err := c.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // -------------------------------------------------------------- //
@@ -141,6 +156,9 @@ func (fw FileWriter) GetWriter() io.Writer {
 // SetWriter
 // ---------------------------------------------------------------//
 func (fw *FileWriter) SetWriter(w io.Writer) error {
+	if c, ok := w.(io.Closer); ok {
+		fw.closer = append(fw.closer, c)
+	}
 	if fw.allowMultiWrite {
 		fw.writer = io.MultiWriter(fw.writer, w)
 	} else {

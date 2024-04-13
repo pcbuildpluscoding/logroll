@@ -112,4 +112,15 @@ logroll:
   - source: logroll.go
     date: logroll.go
     notes: |
-      1. change Level.String to return a lowercase short form of the level value
+      change Level.String to return a lowercase short form of the level value
+  - source: entry.go
+    date: 13 Apr 2024
+    notes: |
+      add a Close() error method to the LogWriter interface.
+  - source: logfile.go
+    date: 13 Apr 2024
+    notes: |
+      1. change LogFile.Closef(string, ...interface{}) to LogFile.Close()
+      2. add a []io.Closer prop to FileWriter and append a closer if the io.Writer is also an io.Closer.
+         the append closer action happens in FileWriter.SetWriter method
+      3. change the code : 1. call lf.writer.Close() and 2. call lf.rWriter.Close() (if != nil)

@@ -212,9 +212,11 @@ func (f *LogFile) SetWriter(iw interface{}) {
 // -------------------------------------------------------------- //
 // Closef
 // ---------------------------------------------------------------//
-func (f *LogFile) Closef(format string, args ...interface{}) {
-	f.addEntry(DebugLevel, format, args...)
-	f.addEntry(DebugLevel, "__EOF__")
+func (f *LogFile) Close() error {
+	if f.rWriter != nil {
+		f.rWriter.Close() //nolint
+	}
+	return f.writer.Close()
 }
 
 // -------------------------------------------------------------- //
