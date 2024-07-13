@@ -160,6 +160,58 @@ func tca_logFile(t *testing.T, rw FlowRuler, args ...interface{}) error {
 	return nil
 }
 
+// ----------------------------------------------------------------//
+// tca_remote
+// ----------------------------------------------------------------//
+func tca_remote(t *testing.T, rw FlowRuler, args ...interface{}) error {
+	fmt.Printf("\nrunning tca_logfile ...\n")
+
+	logfile, err := os.Create("./testing1.log")
+	assert.NilError(t, err, "assert-0")
+	writer := logg.NewFileWriter(logfile, false, nil)
+
+	logger := logg.NewAnyLog(writer)
+	logger.Warnf("warning message!")
+	// debug messages should not be output when the log level == info
+	logger.Debugf("debug message!")
+
+	logger.SetLevel(logg.DebugLevel)
+
+	logger.Debugf("debug message!")
+
+	logger.Infof("info message!")
+
+	logger.Errorf("error message!")
+
+	logger.Error(errors.New("another error!"))
+
+	dump, err := os.ReadFile("./testing1.log") //read the content of file
+	if err != nil {
+		return err
+	}
+	for i, line := range bytes.Split(dump, []byte("\n")) {
+		fmt.Println(string(line))
+		switch i {
+		case 0:
+			assert.Equal(t, "warning message!", getLogMessage(string(line)), "assert-3-%d", i)
+		case 1:
+			assert.Equal(t, "debug message!", getLogMessage(string(line)), "assert-3-%d", i)
+		case 2:
+			assert.Equal(t, "info message!", getLogMessage(string(line)), "assert-3-%d", i)
+		case 3:
+			assert.Equal(t, "error message!", getLogMessage(string(line)), "assert-3-%d", i)
+		case 4:
+			assert.Equal(t, "another error!", getLogMessage(string(line)), "assert-3-%d", i)
+		}
+	}
+
+	err = logger.Close()
+	assert.NilError(t, err, "assert-4")
+
+	fmt.Println("tca_logfile is complete")
+	return nil
+}
+
 // ------------------------------------------------	------------------//
 // getTestbookA
 // ------------------------------------------------------------------//
@@ -177,6 +229,8 @@ func getTestbookA(rw FlowRuler) ([]Testcase, error) {
 			y[i] = Testcase{actor: tca_logFile, name: "tca_logFile", dataKey: "tca_logFile"}
 		case "tca_logEntry":
 			y[i] = Testcase{actor: tca_logEntry, name: "tca_logEntry", dataKey: "tca_logFile"}
+		case "tca_remote":
+			y[i] = Testcase{actor: tca_remote, name: "tca_remote", dataKey: "tca_logFile"}
 		default:
 			return nil, fmt.Errorf("unknown testcase name : |%s|", z)
 		}

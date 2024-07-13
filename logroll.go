@@ -2,6 +2,7 @@ package logroll
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"time"
 )
@@ -135,6 +136,36 @@ func New(arg ...Level) *LogFile {
 		level:        level,
 		reportCaller: true,
 		exitFunc:     os.Exit,
+	}
+}
+
+// ------------------------------------------------------------------//
+// NewFileWriter
+// ------------------------------------------------------------------//
+func NewFileWriter(writer io.Writer, allow bool, f Formatter) *FileWriter {
+	if f == nil {
+		f = NewMinimalFormatter()
+	}
+	return &FileWriter{
+		allowMultiWrite: allow,
+		writer:          writer,
+		formatter:       f,
+	}
+}
+
+// ------------------------------------------------------------------//
+// NewAnyLog
+// ------------------------------------------------------------------//
+func NewAnyLog(writer LogWriter, arg ...Level) *AnyLog {
+	level := InfoLevel
+	if arg != nil {
+		level = arg[0]
+	}
+	return &AnyLog{
+		tokenCh:      newAtomicWrite(),
+		level:        level,
+		reportCaller: true,
+		writer:       writer,
 	}
 }
 

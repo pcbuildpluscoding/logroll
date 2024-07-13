@@ -1,0 +1,7 @@
+---
+logroll:
+  - source: logfile.go
+    date: 13 Jul 2024
+    notes: |
+      i) create logfile1.go and new type LogFile1 which is a clone of LogFile but has checks to ensure 
+        logfile.writer is not nil before using it.

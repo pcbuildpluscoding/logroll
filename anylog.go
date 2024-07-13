@@ -8,33 +8,10 @@ import (
 	"time"
 )
 
-type exitFunc func(int)
-
-// ==================================================================//
-// AtomicWrite
-// ==================================================================//
-type AtomicWrite struct {
-	stateCh chan Void
-}
-
-// -------------------------------------------------------------- //
-// get
-// ---------------------------------------------------------------//
-func (a *AtomicWrite) get() Void {
-	return <-a.stateCh
-}
-
-// -------------------------------------------------------------- //
-// set
-// ---------------------------------------------------------------//
-func (a *AtomicWrite) set(token Void) {
-	a.stateCh <- token
-}
-
 // =============================================================== //
-// LogFile
+// AnyLog
 // =============================================================== //
-type LogFile struct {
+type AnyLog struct {
 	category FlowRule
 
 	// The logging level the logger should log at. This is typically (and defaults
@@ -46,7 +23,6 @@ type LogFile struct {
 	// Reusable empty entry
 	entryPool sync.Pool
 	// Function to exit the application, defaults to `os.Exit()`
-	exitFunc exitFunc
 
 	reportCaller bool
 
@@ -54,14 +30,13 @@ type LogFile struct {
 
 	tokenCh AtomicWrite
 
-	writer  LogWriter
-	rWriter LogWriter
+	writer LogWriter
 }
 
 // -------------------------------------------------------------- //
 // AddLogCat
 // ---------------------------------------------------------------//
-func (f *LogFile) AddLogCat(args ...interface{}) {
+func (f *AnyLog) AddLogCat(args ...interface{}) {
 	var (
 		key string
 		ok  bool
@@ -70,7 +45,7 @@ func (f *LogFile) AddLogCat(args ...interface{}) {
 		if i%2 == 0 {
 			key, ok = arg.(string)
 			if !ok {
-				f.Printf("LogFile - category name is a not a string")
+				f.Printf("AnyLog - category name is a not a string")
 				continue
 			}
 		}
@@ -81,11 +56,9 @@ func (f *LogFile) AddLogCat(args ...interface{}) {
 // -------------------------------------------------------------- //
 // addEntry
 // ---------------------------------------------------------------//
-func (f *LogFile) addEntry(level Level, format string, args ...interface{}) {
+func (f *AnyLog) addEntry(level Level, format string, args ...interface{}) {
 	if level > f.level {
 		return
-	} else if f.writer == nil {
-		panic("LogFile.writer is nil")
 	}
 	// only one goroutine can get the token, all other will block
 	token := f.tokenCh.get()
@@ -97,25 +70,20 @@ func (f *LogFile) addEntry(level Level, format string, args ...interface{}) {
 		e.Caller = GetCallerText(false)
 	}
 
+	if f.writer == nil {
+		panic("AnyLog writer is nil")
+	}
 	err := f.writer.Write(e)
 	if err != nil {
-		f.traceLog.Debugf("LogFile LogWriter error : %v", err) //nolint
-		f.Printf("LogFile LogWriter error : %v", err)
-	}
-
-	if f.rWriter != nil {
-		err = f.rWriter.Write(e)
-		if err != nil {
-			f.traceLog.Debugf("LogFile LogWriter error : %v", err) //nolint
-			f.Printf("LogFile LogWriter error : %v", err)
-		}
+		f.traceLog.Debugf("AnyLog LogWriter error : %v", err) //nolint
+		f.Printf("AnyLog LogWriter error : %v", err)
 	}
 
 	f.putEntry(e)
 
 	if err != nil {
-		f.traceLog.Debugf("LogFile LogWriter error : %v", err) //nolint
-		f.Printf("LogFile entry encoding error : %v", err)
+		f.traceLog.Debugf("AnyLog LogWriter error : %v", err) //nolint
+		f.Printf("AnyLog entry encoding error : %v", err)
 		return
 	}
 
@@ -126,16 +94,16 @@ func (f *LogFile) addEntry(level Level, format string, args ...interface{}) {
 // -------------------------------------------------------------- //
 // SetTrace
 // ---------------------------------------------------------------//
-func (f *LogFile) SetTrace(running bool) {
+func (f *AnyLog) SetTrace(running bool) {
 	f.traceLog.running = running
 }
 
 // -------------------------------------------------------------- //
 // DumpTrace
 // ---------------------------------------------------------------//
-func (f *LogFile) DumpTrace() error {
+func (f *AnyLog) DumpTrace() error {
 	if f.writer == nil {
-		panic("LogFile.writer is nil")
+		panic("AnyLog writer is nil")
 	}
 	return f.traceLog.Dump(f.writer.GetWriter())
 }
@@ -143,17 +111,17 @@ func (f *LogFile) DumpTrace() error {
 // -------------------------------------------------------------- //
 // Flush
 // ---------------------------------------------------------------//
-func (f *LogFile) Flush() {
-	if f.rWriter == nil {
-		return
+func (f *AnyLog) Flush() {
+	if f.writer == nil {
+		panic("AnyLog writer is nil")
 	}
 	token := f.tokenCh.get()
 	e := f.getEntry(InfoLevel)
 	e.Value = "__flush__"
-	err := f.rWriter.Write(e)
+	err := f.writer.Write(e)
 	if err != nil {
-		f.traceLog.Debugf("LogFile LogWriter error : %v", err) //nolint
-		f.Printf("LogFile LogWriter error : %v", err)
+		f.traceLog.Debugf("AnyLog LogWriter error : %v", err) //nolint
+		f.Printf("AnyLog LogWriter error : %v", err)
 	}
 	f.tokenCh.set(token)
 }
@@ -161,9 +129,9 @@ func (f *LogFile) Flush() {
 // -------------------------------------------------------------- //
 // Writer
 // ---------------------------------------------------------------//
-func (f *LogFile) Writer() io.Writer {
+func (f *AnyLog) Writer() io.Writer {
 	if f.writer == nil {
-		panic("LogFile.writer is nil")
+		return nil
 	}
 	return f.writer.GetWriter()
 }
@@ -171,7 +139,7 @@ func (f *LogFile) Writer() io.Writer {
 // -------------------------------------------------------------- //
 // getEntry
 // ---------------------------------------------------------------//
-func (f *LogFile) getEntry(level Level) *LogEntry {
+func (f *AnyLog) getEntry(level Level) *LogEntry {
 	e, ok := f.entryPool.Get().(*LogEntry)
 	if !ok {
 		e = &LogEntry{}
@@ -184,7 +152,7 @@ func (f *LogFile) getEntry(level Level) *LogEntry {
 // -------------------------------------------------------------- //
 // putEntry
 // ---------------------------------------------------------------//
-func (f *LogFile) putEntry(e *LogEntry) {
+func (f *AnyLog) putEntry(e *LogEntry) {
 	e.reset()
 	f.entryPool.Put(e)
 }
@@ -192,97 +160,82 @@ func (f *LogFile) putEntry(e *LogEntry) {
 // -------------------------------------------------------------- //
 // SetLevel
 // ---------------------------------------------------------------//
-func (f *LogFile) SetLevel(level Level) {
+func (f *AnyLog) SetLevel(level Level) {
 	f.level = level
 }
 
 // -------------------------------------------------------------- //
 // SetRemoteWriter
 // ---------------------------------------------------------------//
-func (f *LogFile) SetRemoteWriter(writer LogWriter) {
+func (f *AnyLog) SetWriter(writer LogWriter) {
 	token := f.tokenCh.get()
-	f.rWriter = writer
+	f.writer = writer
 	f.tokenCh.set(token)
-}
-
-// -------------------------------------------------------------- //
-// SetWriter
-// ---------------------------------------------------------------//
-func (f *LogFile) SetWriter(iw interface{}) {
-	switch writer := iw.(type) {
-	case LogWriter:
-		f.writer = writer
-	case io.Writer:
-		f.writer.SetWriter(writer) //nolint
-	}
 }
 
 // -------------------------------------------------------------- //
 // Closef
 // ---------------------------------------------------------------//
-func (f *LogFile) Close() error {
-	if f.writer == nil {
-		panic("LogFile.writer is nil")
+func (f *AnyLog) Close() error {
+	if f.writer != nil {
+		return f.writer.Close()
 	}
-	if f.rWriter != nil {
-		f.rWriter.Close() //nolint
-	}
-	return f.writer.Close()
+	return nil
 }
 
 // -------------------------------------------------------------- //
 // Debugf
 // ---------------------------------------------------------------//
-func (f *LogFile) Debugf(format string, args ...interface{}) {
+func (f *AnyLog) Debugf(format string, args ...interface{}) {
 	f.addEntry(DebugLevel, format, args...)
 }
 
 // -------------------------------------------------------------- //
 // Infof
 // ---------------------------------------------------------------//
-func (f *LogFile) Infof(format string, args ...interface{}) {
+func (f *AnyLog) Infof(format string, args ...interface{}) {
 	f.addEntry(InfoLevel, format, args...)
 }
 
 // -------------------------------------------------------------- //
 // Printf
 // ---------------------------------------------------------------//
-func (f *LogFile) Printf(format string, args ...interface{}) {
+func (f *AnyLog) Printf(format string, args ...interface{}) {
 	fmt.Printf(format+"\n", args...)
 }
 
 // -------------------------------------------------------------- //
 // Warnf
 // ---------------------------------------------------------------//
-func (f *LogFile) Warnf(format string, args ...interface{}) {
+func (f *AnyLog) Warnf(format string, args ...interface{}) {
 	f.addEntry(WarnLevel, format, args...)
 }
 
 // -------------------------------------------------------------- //
 // Error
 // ---------------------------------------------------------------//
-func (f *LogFile) Error(err error) {
+func (f *AnyLog) Error(err error) {
 	f.addEntry(ErrorLevel, err.Error())
 }
 
 // -------------------------------------------------------------- //
 // Errorf
 // ---------------------------------------------------------------//
-func (f *LogFile) Errorf(format string, args ...interface{}) {
+func (f *AnyLog) Errorf(format string, args ...interface{}) {
 	f.addEntry(ErrorLevel, format, args...)
 }
 
 // -------------------------------------------------------------- //
 // Fatal
 // ---------------------------------------------------------------//
-func (f *LogFile) Fatal(err error) {
+func (f *AnyLog) Fatal(err error) {
 	f.addEntry(FatalLevel, err.Error())
 }
 
 // -------------------------------------------------------------- //
 // Fatalf
 // ---------------------------------------------------------------//
-func (f *LogFile) Fatalf(format string, args ...interface{}) {
+func (f *AnyLog) Fatalf(format string, args ...interface{}) {
 	f.addEntry(FatalLevel, format, args...)
 	os.Exit(1)
 }
@@ -290,7 +243,7 @@ func (f *LogFile) Fatalf(format string, args ...interface{}) {
 // -------------------------------------------------------------- //
 // Panicf
 // ---------------------------------------------------------------//
-func (f *LogFile) Panicf(format string, args ...interface{}) {
+func (f *AnyLog) Panicf(format string, args ...interface{}) {
 	f.addEntry(PanicLevel, format, args...)
 	// panic(fmt.Sprintf(format, args...))
 }
@@ -298,7 +251,7 @@ func (f *LogFile) Panicf(format string, args ...interface{}) {
 // -------------------------------------------------------------- //
 // Tracef
 // ---------------------------------------------------------------//
-func (f *LogFile) Tracef(format string, args ...interface{}) {
+func (f *AnyLog) Tracef(format string, args ...interface{}) {
 	f.addEntry(TraceLevel, format, args...)
 	// panic(fmt.Sprintf(format, args...))
 }
