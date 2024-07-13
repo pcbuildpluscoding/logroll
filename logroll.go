@@ -12,6 +12,24 @@ const defaultTimestampFormat = time.RFC3339
 type Void struct{}
 
 // =============================================================== //
+// Logger
+// =============================================================== //
+type Logger interface {
+	Close() error
+	Debugf(string, ...any)
+	Infof(string, ...any)
+	Printf(string, ...any)
+	Warnf(string, ...any)
+	Error(error)
+	Errorf(string, ...any)
+	Fatal(error)
+	Fatalf(string, ...any)
+	Panicf(string, ...any)
+	Tracef(string, ...any)
+	SetLevel(Level)
+}
+
+// =============================================================== //
 // Formatter
 // =============================================================== //
 type Formatter interface {

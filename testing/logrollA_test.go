@@ -170,7 +170,8 @@ func tca_remote(t *testing.T, rw FlowRuler, args ...interface{}) error {
 	assert.NilError(t, err, "assert-0")
 	writer := logg.NewFileWriter(logfile, false, nil)
 
-	logger := logg.NewAnyLog(writer)
+	var logger logg.Logger
+	logger = logg.NewAnyLog(writer)
 	logger.Warnf("warning message!")
 	// debug messages should not be output when the log level == info
 	logger.Debugf("debug message!")
