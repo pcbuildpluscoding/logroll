@@ -1,237 +1,211 @@
 package logroll
 
 import (
-  "fmt"
-  "io"
-  "os"
-  "regexp"
-  "runtime"
-  "strings"
-  "sync"
-  "syscall"
-
-  "github.com/sirupsen/logrus"
+	"fmt"
+	"io"
+	"os"
+	"time"
 )
 
-type Logroll struct {
-  Log *logrus.Logger
-  Fd *os.File
-}
+const defaultTimestampFormat = time.RFC3339
 
-//------------------------------------------------------------------//
-//  init
-//------------------------------------------------------------------//
-func init() {
-  levelDesc := os.Getenv("EMB_LOG_LEVEL")
-  if levelDesc == "" {
-    levelDesc = "debug"
-  }
-  switch strings.ToLower(levelDesc) {
-  case "debug":
-    logLevel = logrus.DebugLevel
-  case "info":
-    logLevel = logrus.InfoLevel
-  default:
-    fmt.Printf("!!!!!! invalid log level : %s !!!!!!\n", logLevel)
-    logLevel = logrus.DebugLevel
-  }
-  _logger = Get()
-}
-
-var (
-  _logger *logrus.Logger
-  logLevel  logrus.Level
-  mutex     sync.Mutex
-  fileRegex = regexp.MustCompile(`/`)
-  funcRegex = regexp.MustCompile(`\.`)
-)
-
-//------------------------------------------------------------------//
-//  trimPath - reduces the path of the caller file name
-//------------------------------------------------------------------//
-func trimCaller(fileName string, lineNum int) string {
-  fitems := fileRegex.Split(fileName, -1)
-  size := len(fitems)
-  if size <= 2 {
-    return fileName
-  }
-  return fmt.Sprintf("%s/%s:%d", fitems[size-2], fitems[size-1], lineNum)
-}
-
-//------------------------------------------------------------------//
-//  trimFunc - reduces the path of the caller function name
-//------------------------------------------------------------------//
-func trimFunc(fileName string) string {
-  fitems := funcRegex.Split(fileName, -1)
-  size := len(fitems)
-  if size <= 2 {
-    return fileName
-  }
-  return fmt.Sprintf("%s.%s", fitems[size-2], fitems[size-1])
-}
-
-//------------------------------------------------------------------//
-//  GetLogLevel
-//------------------------------------------------------------------//
-func GetLogLevel() logrus.Level {
-  return logLevel
-}
-
-//------------------------------------------------------------------//
-//  levelAllSet
-//------------------------------------------------------------------//
 type Void struct{}
-func allLevelsSet() map[logrus.Level]Void {
-  return map[logrus.Level]Void{
-    logrus.InfoLevel: {},
-    logrus.DebugLevel: {},
-    logrus.ErrorLevel: {},
-    logrus.WarnLevel: {},
-    logrus.FatalLevel: {},
-    logrus.PanicLevel: {},
-  }
+
+// =============================================================== //
+// Logger
+// =============================================================== //
+type Logger interface {
+	Close() error
+	Debugf(string, ...any)
+	Infof(string, ...any)
+	Printf(string, ...any)
+	Warnf(string, ...any)
+	Error(error)
+	Errorf(string, ...any)
+	Fatal(error)
+	Fatalf(string, ...any)
+	Panicf(string, ...any)
+	Tracef(string, ...any)
+	SetLevel(Level)
 }
 
-//------------------------------------------------------------------//
-//  filterLevels
-//------------------------------------------------------------------//
-func filterLevels(mode string, levelKeys ...string) []logrus.Level {
-  switch {
-  case mode == "include" && levelKeys != nil:
-    levels := make([]logrus.Level, len(levelKeys))
-    for i, key := range levelKeys {
-      var level logrus.Level
-      switch key {
-      case "info":
-        level = logrus.InfoLevel
-      case "debug":
-        level = logrus.DebugLevel
-      case "error":
-        level = logrus.ErrorLevel
-      case "warn":
-        level = logrus.WarnLevel
-      case "fatal":
-        level = logrus.FatalLevel
-      case "panic":
-        level = logrus.PanicLevel
-      }
-      levels[i] = level
-    }
-    return levels
-  case mode == "exclude" && levelKeys != nil:
-    levelSet := allLevelsSet()
-    for _, key := range levelKeys {
-      switch key {
-      case "info":
-        delete(levelSet, logrus.InfoLevel)
-      case "debug":
-        delete(levelSet, logrus.DebugLevel)
-      case "error":
-        delete(levelSet, logrus.ErrorLevel)
-      case "warn":
-        delete(levelSet, logrus.WarnLevel)
-      case "fatal":
-        delete(levelSet, logrus.FatalLevel)
-      case "panic":
-        delete(levelSet, logrus.PanicLevel)
-      }
-    }
-    levels := make([]logrus.Level, len(levelSet))
-    i := 0
-    for level := range levelSet {
-      levels[i] = level
-      i++
-    }
-    return levels
-  default:
-    return logrus.AllLevels
-  }
+// =============================================================== //
+// Formatter
+// =============================================================== //
+type Formatter interface {
+	Format(*LogEntry) ([]byte, error)
 }
 
-//------------------------------------------------------------------//
-//  Get
-//------------------------------------------------------------------//
-func Get(logArgs ...string) *logrus.Logger {
-  mutex.Lock()
-  defer mutex.Unlock()
+// =============================================================== //
+// Level
+// =============================================================== //
+type Level int
 
-  if logArgs == nil && _logger != nil {
-    return _logger
-  }
+// These are the different logging levels. You can set the logging level to log
+// on your instance of logger, obtained with `logroll.New()`.
+const (
+	NoLevel Level = iota
+	// PanicLevel level, highest level of severity. Logs and then calls panic with the
+	// message passed to Debug, Info, ...
+	PanicLevel
+	// FatalLevel level. Logs and then calls `logger.Exit(1)`. It will exit even if the
+	// logging level is set to Panic.
+	FatalLevel
+	// ErrorLevel level. Logs. Used for errors that should definitely be noted.
+	// Commonly used for hooks to send errors to an error tracking service.
+	ErrorLevel
+	// WarnLevel level. Non-critical entries that deserve eyes.
+	WarnLevel
+	// InfoLevel level. General operational entries about what's going on inside the
+	// application.
+	InfoLevel
+	// DebugLevel level. Usually only enabled when debugging. Very verbose logging.
+	DebugLevel
+	// TraceLevel level. Designates finer-grained informational events than the Debug.
+	TraceLevel
+)
 
-  logger := getDefLogger()
-
-  if logArgs != nil {
-    _, logger.Out = getLogWriter(logArgs[0])
-  }
-
-  _logger = logger
-  
-  return logger
+func (level Level) String() string {
+	switch level {
+	case PanicLevel:
+		return "panic"
+	case FatalLevel:
+		return "fatal"
+	case ErrorLevel:
+		return "error"
+	case WarnLevel:
+		return "warn"
+	case InfoLevel:
+		return "info"
+	case DebugLevel:
+		return "debug"
+	case TraceLevel:
+		return "trace"
+	default:
+		return "invalid"
+	}
 }
 
-//------------------------------------------------------------------//
-//  getDefLogger
-//------------------------------------------------------------------//
-func getDefLogger() *logrus.Logger {
-  prettyfier := func(f *runtime.Frame) (string, string) {
-    callerTxt := trimCaller(f.File, f.Line)
-    funcTxt := trimFunc(f.Function)
-    return funcTxt, callerTxt
-  }
-  formatter := &logrus.TextFormatter{
-    CallerPrettyfier:          prettyfier,
-    DisableTimestamp:          false,
-    DisableLevelTruncation:    true,
-    EnvironmentOverrideColors: true,
-    FullTimestamp:             true,
-    PadLevelText:              true,
-    TimestampFormat:           "2006-01-02 15:04:05.000000"}
-  return &logrus.Logger{
-    Out:          os.Stdout,
-    Formatter:    formatter,
-    Hooks:        make(logrus.LevelHooks),
-    Level:        logLevel,
-    ReportCaller: true,
-  }
+// ParseLevel takes a string level and returns the Logroll log level constant.
+func ParseLevel(level string) (Level, error) {
+	switch level {
+	case "panic":
+		return PanicLevel, nil
+	case "fatal":
+		return FatalLevel, nil
+	case "error":
+		return ErrorLevel, nil
+	case "warn":
+		return WarnLevel, nil
+	case "info":
+		return InfoLevel, nil
+	case "debug":
+		return DebugLevel, nil
+	case "trace":
+		return TraceLevel, nil
+	}
+
+	return NoLevel, fmt.Errorf("|%s| is not a valid logroll Level", level)
 }
 
-//------------------------------------------------------------------//
-//  getLogWriter
-//------------------------------------------------------------------//
-func getLogWriter(logPath string) (*os.File, io.Writer) {
-  logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-  if err != nil {
-    _logger.Errorf("Failed to open logfile, invalid path. Using default stdout. Error : %v", err)
-    return nil, os.Stdout
-  }
-  err = redirectStderr(logFile)
-  if err != nil {
-    _logger.Errorf("Failed to redirect stderr to file: %v", err)
-    return nil, os.Stdout
-  }
-  return logFile, io.MultiWriter(os.Stdout, logFile)
+// ------------------------------------------------------------------//
+// NewTextFormatter
+// ------------------------------------------------------------------//
+func NewTextFormatter() *TextFormatter {
+	prettyfier := func(text string) (string, string) {
+		funcTxt, callerTxt := getCallerProps(text)
+		return trimFunc(funcTxt), trimCaller(callerTxt)
+	}
+	return &TextFormatter{
+		CallerPrettyfier: prettyfier,
+		DisableTimestamp: false,
+		FullTimestamp:    true,
+		PadLevelText:     true,
+		TimestampFormat:  "2006-01-02 15:04:05.000000"}
 }
 
-//------------------------------------------------------------------//
-//  WithFd
-//------------------------------------------------------------------//
-func WithFd(logPath string) (*os.File, *logrus.Logger) {
-  mutex.Lock()
-  defer mutex.Unlock()
-
-  var logfd *os.File
-
-  logger := getDefLogger()
-
-  logfd, logger.Out = getLogWriter(logPath)
-
-  return logfd, logger
+// ------------------------------------------------------------------//
+// NewMinimalFormatter
+// ------------------------------------------------------------------//
+func NewMinimalFormatter() *MinimalFormatter {
+	f := &MinimalFormatter{
+		PadLevelText:    true,
+		TimestampFormat: "2006-01-02 15:04:05.000000"}
+	f.init()
+	return f
 }
 
-//------------------------------------------------------------------//
-//  redirectStderr
-//------------------------------------------------------------------//
-func redirectStderr(f *os.File) error {
-  return syscall.Dup2(int(f.Fd()), int(os.Stderr.Fd()))
+// ------------------------------------------------------------------//
+// New
+// ------------------------------------------------------------------//
+func New(arg ...Level) *LogFile {
+	level := InfoLevel
+	if arg != nil {
+		level = arg[0]
+	}
+	writer := &FileWriter{
+		allowMultiWrite: true,
+		writer:          os.Stdout,
+		formatter:       NewMinimalFormatter(),
+	}
+	return &LogFile{
+		writer:       writer,
+		tokenCh:      newAtomicWrite(),
+		level:        level,
+		reportCaller: true,
+		exitFunc:     os.Exit,
+	}
+}
+
+// ------------------------------------------------------------------//
+// NewFileWriter
+// ------------------------------------------------------------------//
+func NewFileWriter(writer io.Writer, allow bool, f Formatter) *FileWriter {
+	if f == nil {
+		f = NewMinimalFormatter()
+	}
+	return &FileWriter{
+		allowMultiWrite: allow,
+		writer:          writer,
+		formatter:       f,
+	}
+}
+
+// ------------------------------------------------------------------//
+// NewAnyLog
+// ------------------------------------------------------------------//
+func NewAnyLog(writer LogWriter, arg ...Level) *AnyLog {
+	level := InfoLevel
+	if arg != nil {
+		level = arg[0]
+	}
+	return &AnyLog{
+		tokenCh:      newAtomicWrite(),
+		level:        level,
+		reportCaller: true,
+		writer:       writer,
+	}
+}
+
+// ------------------------------------------------------------------//
+// WithFile
+// ------------------------------------------------------------------//
+func WithFile(logPath string, level ...Level) (*LogFile, error) {
+	lf := New(level...)
+	writer, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		return lf, err
+	}
+	return lf, lf.writer.SetWriter(writer)
+}
+
+// --------------------	------------------------------------------ //
+// newAtomicWrite
+// ---------------------------------------------------------------//
+func newAtomicWrite() AtomicWrite {
+	a := AtomicWrite{
+		stateCh: make(chan Void, 1),
+	}
+	a.stateCh <- Void{}
+	return a
 }

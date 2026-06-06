@@ -1,0 +1,10 @@
+---
+logroll:
+  - source: __package__
+    date: 17 Mar 2024
+    notes: |
+      remove all redundant functions like allLevelsSet and filterLevels and global var logLevel
+  - source: __package__
+    date: 17 Mar 2024
+    notes: |
+      remove init() function as it is redundant

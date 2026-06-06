@@ -1,0 +1,25 @@
+---
+logroll:
+  - source: logroll.go
+    date: 17 Mar 2024
+    notes: |
+      change WithFile(string, teeWithStdout bool) to WithFile(string, ...notTeedWithStdout)
+      since the vast majority, 99% of the usage will say yes to teeWithStdout
+  - source: logroll.go
+    date: 17 Mar 2024
+    notes: |
+      change Get(logArgs ...string) *logrus.Logger to Get() *logrus.Logger
+      the variadic string is to optionally apply a logfile to logger.Out
+      but this is already available by the WithFile method. the reason seems
+      to be an avoidance of handling the returned vars (Logger and error), which
+      in review is not valid given that in practice such a method is never needed
+  - source: __package__
+    date: 17 Mar 2024
+    notes: |
+      remove the type Logroll at line 16 - it is not used and is redundant
+  - source: __package__
+    date: 17 Mar 2024
+    notes: |
+      add _logfile to the global vars and provide a GetLogile method that returns it
+      after review the purpose of having a global logfile is not very clear and so this one
+      is not implemented
