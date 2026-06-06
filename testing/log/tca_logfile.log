@@ -1,0 +1,5 @@
+time="2024-07-13 18:21:58.775222" level="warn"  msg="warning message!" func="command-line-arguments.tca_logFile" file="testing/logrollA_test.go:119"
+time="2024-07-13 18:21:58.775500" level="debug" msg="debug message!" func="command-line-arguments.tca_logFile" file="testing/logrollA_test.go:125"
+time="2024-07-13 18:21:58.775517" level="info"  msg="info message!" func="command-line-arguments.tca_logFile" file="testing/logrollA_test.go:127"
+time="2024-07-13 18:21:58.775530" level="error" msg="error message!" func="command-line-arguments.tca_logFile" file="testing/logrollA_test.go:129"
+time="2024-07-13 18:21:58.775543" level="error" msg="another error!" func="command-line-arguments.tca_logFile" file="testing/logrollA_test.go:131"
